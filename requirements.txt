@@ -1,0 +1,7 @@
+rich
+typer
+beautifulsoup4
+google-auth-oauthlib
+google-auth
+google-api-python-client
+html5lib
