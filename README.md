@@ -1,56 +1,47 @@
-LinkedIn Jobs CLI — type `jobs` to list NEW & UNAPPLIED roles in your terminal
+# 💼 LinkedIn Jobs CLI  
+**Type `jobs` to list NEW & UNAPPLIED roles — right in your terminal.**
 
-Overview
---------
-This CLI avoids brittle LinkedIn scraping (which violates ToS and breaks often)
-by reading your **email job alerts** (e.g., "LinkedIn Job Alert") via the
-Gmail API, extracting job cards, and storing them locally. You get a clean
-bullet-point list of new roles you haven't marked as applied.
+---
 
-Commands
---------
-  jobs                 # List new + unapplied jobs (default command)
-  fetch                # Pull latest job alerts from Gmail and store them
-  apply <id>           # Mark a job as applied (hides it from the default list)
-  seen <id>            # Mark a job as seen (but not applied)
-  ignore <id>          # Hide a job without marking as applied
-  all                  # List everything (including applied/ignored)
-  open <id>            # Open the job in your browser
-  reset                # Wipe local database (careful)
-  settings ...         # Manage filters that decide which jobs are shown
+### ⚡️ Overview  
+**LinkedIn Jobs CLI** helps you manage your job search without brittle scraping.  
+Instead of violating LinkedIn’s ToS or relying on unstable HTML parsing, this CLI securely reads your **LinkedIn Job Alert emails** via the **Gmail API**, extracts job data, and stores it locally.  
 
-Setup (one-time)
-----------------
-1) Python packages (create a venv if you like):
-   pip install -r requirements.txt
+You’ll get a clean, bullet-point list of new roles you haven’t marked as applied — all from the command line.
 
-2) Gmail API credentials:
-   • Go to https://console.cloud.google.com/apis/credentials
-   • Create OAuth Client ID (Desktop app). Download `credentials.json` to the
-     same folder as this script.
-   • On first `python jobs_cli.py fetch`, your browser will ask to authorize
-     Gmail read access; this creates `token.json` locally.
+---
 
-3) Make it a shell command named `jobs`:
-   chmod +x jobs_cli.py
-   # Option A: symlink into a folder on your PATH (e.g., ~/.local/bin)
-   ln -s "$(pwd)/jobs_cli.py" ~/.local/bin/jobs
-   # Option B: add an alias to your shell rc file
-   alias jobs="python /full/path/to/jobs_cli.py"
+### 🧠 Features  
+- 🔍 **List new, unseen, and unapplied jobs** directly in your terminal  
+- 📬 **Fetch** new job alerts automatically from Gmail  
+- 🗂 **Mark jobs** as applied, seen, or ignored  
+- 🌐 **Open** job postings in your browser  
+- ⚙️ **Manage filters** to control which jobs are displayed  
+- 🧹 **Reset** your local database anytime  
 
-Notes
------
-• Source of truth is email alerts (e.g., "LinkedIn Job Alert"). You can extend
-  the parser to handle other sources (Lever/Greenhouse/Muse/Adzuna).
-• "Applied" status is tracked locally; you mark it via the `apply` command.
-• This script **does not** scrape LinkedIn directly.
+---
 
-requirements.txt
-----------------
-rich
-typer
-beautifulsoup4
-google-auth-oauthlib
-google-auth
-google-api-python-client
-html5lib
+### 💻 Commands  
+
+| Command | Description |
+|----------|-------------|
+| `jobs` | List new + unapplied jobs *(default command)* |
+| `fetch` | Pull latest job alerts from Gmail and store them locally |
+| `apply <id>` | Mark a job as applied (hides it from the default list) |
+| `seen <id>` | Mark a job as seen (but not applied) |
+| `ignore <id>` | Hide a job without marking as applied |
+| `all` | List everything (including applied/ignored) |
+| `open <id>` | Open the job posting in your browser |
+| `reset` | Wipe local database *(use with caution)* |
+| `settings ...` | Manage filters for displayed jobs |
+
+---
+
+### ⚙️ Setup (One-Time)
+
+#### 1️⃣ Install dependencies
+It’s recommended to use a virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
