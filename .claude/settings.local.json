@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Read(//Users/nikolai/.linkedin_jobs_cli/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

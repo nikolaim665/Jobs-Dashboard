@@ -12,28 +12,35 @@ bullet-point list of new roles you haven't marked as applied.
 Commands
 --------
   jobs                 # List new + unapplied jobs (default command)
-  fetch                # Pull latest job alerts from Gmail and store them
+  fetch                # Pull latest job alerts from Gmail (default) or RSS feeds
   apply <id>           # Mark a job as applied (hides it from the default list)
   seen <id>            # Mark a job as seen (but not applied)
   ignore <id>          # Hide a job without marking as applied
   all                  # List everything (including applied/ignored)
   open <id>            # Open the job in your browser
   reset                # Wipe local database (careful)
-  settings ...         # Manage filters that decide which jobs are shown
+  settings ...         # Manage filters and preferences
 
 Setup (one-time)
 ----------------
 1) Python packages (create a venv if you like):
    pip install -r requirements.txt
 
-2) Gmail API credentials:
+2) Gmail API credentials (use your personal Gmail, not university):
    • Go to https://console.cloud.google.com/apis/credentials
-   • Create OAuth Client ID (Desktop app). Download `credentials.json` to the
-     same folder as this script.
+   • Create OAuth Client ID (Desktop app). Download `credentials.json`
+   • Place credentials.json in ~/.linkedin_jobs_cli/ directory
    • On first `python jobs_cli.py fetch`, your browser will ask to authorize
-     Gmail read access; this creates `token.json` locally.
+     Gmail read access (choose your personal Gmail account)
+   • This creates `token.json` locally for future runs
 
-3) Make it a shell command named `jobs`:
+3) Set up LinkedIn job alerts:
+   • Go to LinkedIn Jobs and search for jobs you want
+   • Click "Create job alert" or the bell icon
+   • Set frequency (daily recommended)
+   • Make sure alerts go to your personal Gmail
+
+4) Make it a shell command named `jobs`:
    chmod +x jobs_cli.py
    # Option A: symlink into a folder on your PATH (e.g., ~/.local/bin)
    ln -s "$(pwd)/jobs_cli.py" ~/.local/bin/jobs
@@ -42,10 +49,11 @@ Setup (one-time)
 
 Notes
 -----
-• Source of truth is email alerts (e.g., "LinkedIn Job Alert"). You can extend
-  the parser to handle other sources (Lever/Greenhouse/Muse/Adzuna).
-• "Applied" status is tracked locally; you mark it via the `apply` command.
-• This script **does not** scrape LinkedIn directly.
+• Primary source: LinkedIn job alerts via Gmail API (personal Gmail recommended)
+• Alternative: RSS feeds from job boards (LinkedIn native RSS is deprecated)
+• Use personal Gmail if university account blocks API project creation
+• "Applied" status is tracked locally; you mark it via the `apply` command
+• This script **does not** scrape LinkedIn - it uses legitimate email/API access
 
 requirements.txt
 ----------------
@@ -56,11 +64,14 @@ google-auth-oauthlib
 google-auth
 google-api-python-client
 html5lib
+feedparser
+requests
 
 """
 from __future__ import annotations
 
 import base64
+import builtins
 import json
 import os
 import re
@@ -76,6 +87,8 @@ from rich.console import Console
 from rich.table import Table
 from rich.markdown import Markdown
 from bs4 import BeautifulSoup
+import feedparser
+import requests
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -104,6 +117,7 @@ DEFAULT_SETTINGS = {
     "include_locations": [],
     "exclude_locations": [],
     "max_age_days": 30,
+    "rss_feeds": [],
 }
 
 LINKEDIN_JOB_RE = re.compile(r"https?://(www\.)?linkedin\.com/jobs/view/([^/?#]+)")
@@ -129,7 +143,7 @@ def load_settings() -> dict:
 
     # Normalize types
     for key in DEFAULT_SETTINGS:
-        if key.endswith("titles") or key.endswith("companies") or key.endswith("locations"):
+        if key.endswith("titles") or key.endswith("companies") or key.endswith("locations") or key == "rss_feeds":
             merged[key] = [v for v in merged.get(key, []) if isinstance(v, str) and v.strip()]
         elif key == "max_age_days":
             try:
@@ -193,8 +207,8 @@ def gmail_service():
                 raise typer.Exit(code=1)
             flow = InstalledAppFlow.from_client_secrets_file(str(CRED_PATH), SCOPES)
             creds = flow.run_local_server(port=0)
-        with open(TOKEN_PATH, "w") as token:
-            token.write(creds.to_json())
+        with builtins.open(TOKEN_PATH, "w") as token_file:
+            token_file.write(creds.to_json())
     return build("gmail", "v1", credentials=creds)
 
 
@@ -336,6 +350,102 @@ def fetch_from_gmail(max_results: int = 50):
     return total_new
 
 
+# --------------------------- FETCH FROM RSS ------------------------------------
+
+def fetch_from_rss():
+    """Fetch jobs from configured RSS feeds."""
+    settings = load_settings()
+    rss_feeds = settings.get("rss_feeds", [])
+
+    if not rss_feeds:
+        console.print("[yellow]No RSS feeds configured. Use 'settings add rss_feeds <url>' to add one.[/yellow]")
+        return 0
+
+    total_new = 0
+    with db() as conn:
+        for feed_url in rss_feeds:
+            try:
+                # Fetch the RSS feed
+                response = requests.get(feed_url, timeout=30)
+                response.raise_for_status()
+
+                # Parse the feed
+                feed = feedparser.parse(response.content)
+
+                if not feed.entries:
+                    console.print(f"[yellow]No entries found in feed: {feed_url}[/yellow]")
+                    continue
+
+                # Process each entry
+                for entry in feed.entries:
+                    # Extract job details from RSS entry
+                    title = entry.get("title", "(Job)")
+                    link = entry.get("link", "")
+
+                    # Clean up the link (remove tracking parameters)
+                    if "?" in link:
+                        link = link.split("?")[0]
+
+                    # Try to extract company and location from summary/description
+                    summary = entry.get("summary", "") or entry.get("description", "")
+                    company = None
+                    location = None
+
+                    # LinkedIn RSS often has "Company Name" and "Location" in the summary
+                    if summary:
+                        soup = BeautifulSoup(summary, "html.parser")
+                        text = soup.get_text(" ", strip=True)
+
+                        # Try to parse company and location
+                        # LinkedIn RSS format typically has: "Company Name - Location" or similar
+                        lines = text.split("\n")
+                        for line in lines:
+                            line = line.strip()
+                            if " - " in line and not company:
+                                parts = line.split(" - ", 1)
+                                if len(parts) == 2:
+                                    company = parts[0].strip()
+                                    location = parts[1].strip()
+                                    break
+
+                    # Get published date
+                    published_at = None
+                    if hasattr(entry, "published_parsed") and entry.published_parsed:
+                        try:
+                            published_at = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).isoformat()
+                        except (TypeError, ValueError):
+                            pass
+
+                    # Insert into database
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO jobs (title, company, location, link, source, posted_at, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                title,
+                                company,
+                                location,
+                                link,
+                                "LinkedIn RSS",
+                                published_at,
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
+                        )
+                        total_new += 1
+                    except sqlite3.IntegrityError:
+                        # Job already exists
+                        pass
+
+            except requests.RequestException as e:
+                console.print(f"[red]Error fetching feed {feed_url}: {e}[/red]")
+            except Exception as e:
+                console.print(f"[red]Error processing feed {feed_url}: {e}[/red]")
+
+    return total_new
+
+
 # --------------------------- FILTERING -------------------------------------
 
 def _normalize(value: Optional[str]) -> str:
@@ -451,10 +561,31 @@ def _update_job(job_id: int, **fields):
 # --------------------------- COMMANDS --------------------------------------
 
 @app.command()
-def fetch(max_results: int = typer.Option(50, help="Maximum job alert emails to pull.")):
-    """Fetch latest job alerts from Gmail and store them."""
-    n = fetch_from_gmail(max_results=max_results)
-    console.print(f"[cyan]{n}[/cyan] new job(s) saved.")
+def fetch(
+    source: str = typer.Option("gmail", help="Source to fetch from: 'gmail', 'rss', or 'both'"),
+    max_results: int = typer.Option(50, help="Maximum job alert emails to pull (Gmail only)."),
+):
+    """Fetch latest job alerts from configured sources and store them."""
+    source = source.lower()
+    total = 0
+
+    if source in ("gmail", "both"):
+        console.print("[cyan]Fetching from Gmail...[/cyan]")
+        n = fetch_from_gmail(max_results=max_results)
+        console.print(f"[green]Gmail: {n} new job(s)[/green]")
+        total += n
+
+    if source in ("rss", "both"):
+        console.print("[cyan]Fetching from RSS feeds...[/cyan]")
+        n = fetch_from_rss()
+        console.print(f"[green]RSS: {n} new job(s)[/green]")
+        total += n
+
+    if source not in ("gmail", "rss", "both"):
+        console.print(f"[red]Unknown source '{source}'. Use 'gmail', 'rss', or 'both'.[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[cyan bold]Total: {total} new job(s) saved.[/cyan bold]")
 
 
 @app.command("jobs")
@@ -528,6 +659,7 @@ FIELD_HELP = {
     "include_locations": "Only show jobs whose location includes one of these terms.",
     "exclude_locations": "Hide jobs whose location includes any of these terms.",
     "max_age_days": "Hide jobs older than this many days (0 disables the check).",
+    "rss_feeds": "LinkedIn RSS feed URLs to fetch jobs from (no email needed).",
 }
 
 
