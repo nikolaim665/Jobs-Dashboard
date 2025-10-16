@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(python3:*)",
-      "Read(//Users/nikolai/.linkedin_jobs_cli/**)"
+      "Read(//Users/nikolai/.linkedin_jobs_cli/**)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(python jobs_cli.py settings show:*)",
+      "Bash(python jobs_cli.py:*)",
+      "Read(//Users/nikolai/.local/bin/**)",
+      "Bash(sqlite3:*)",
+      "Bash(python:*)",
+      "Bash(jobs settings show:*)",
+      "Read(//Users/nikolai/**)",
+      "Bash(source ~/.zshrc)",
+      "Bash(unalias:*)",
+      "Bash(/Users/nikolai/.local/bin/jobs settings show:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,6 @@
 # 💼 LinkedIn Jobs CLI
 
-**Type `jobs` to list NEW & UNAPPLIED roles — right in your terminal.**
+**Type `ljobs` to list NEW & UNAPPLIED roles — right in your terminal.**
 
 A terminal CLI for tracking LinkedIn job offers via Gmail! Fetch jobs from Gmail alerts, filter by your preferences, and track which ones you've applied to.
 
@@ -75,15 +75,15 @@ python jobs_cli.py
 
 ## 🔧 Make it a Global CLI Command
 
-Instead of typing `python jobs_cli.py fetch` every time, you can set it up so you just type `jobs fetch` from anywhere!
+Instead of typing `python jobs_cli.py fetch` every time, you can set it up so you just type `ljobs fetch` from anywhere!
 
 ### Option 1: Shell Wrapper Script (Recommended - Works from Anywhere)
 
 This creates a wrapper script that automatically activates your venv:
 
 ```bash
-# Create the wrapper script
-cat > ~/.local/bin/jobs << 'EOF'
+# Create the wrapper script (named 'ljobs' to avoid conflict with shell built-in 'jobs')
+cat > ~/.local/bin/ljobs << 'EOF'
 #!/bin/bash
 source "$HOME/development/Jobs-Dashboard/.venv/bin/activate"
 python "$HOME/development/Jobs-Dashboard/jobs_cli.py" "$@"
@@ -91,8 +91,10 @@ deactivate
 EOF
 
 # Make it executable
-chmod +x ~/.local/bin/jobs
+chmod +x ~/.local/bin/ljobs
 ```
+
+**Note:** We use `ljobs` instead of `jobs` because `jobs` is a shell built-in command.
 
 **Make sure `~/.local/bin` is in your PATH**. Add to your `~/.zshrc` or `~/.bashrc`:
 
@@ -110,7 +112,7 @@ source ~/.zshrc  # or source ~/.bashrc
 Add to your `~/.zshrc` or `~/.bashrc`:
 
 ```bash
-alias jobs='source ~/development/Jobs-Dashboard/.venv/bin/activate && python ~/development/Jobs-Dashboard/jobs_cli.py'
+alias ljobs='source ~/development/Jobs-Dashboard/.venv/bin/activate && python ~/development/Jobs-Dashboard/jobs_cli.py'
 ```
 
 Then reload:
@@ -124,8 +126,8 @@ source ~/.zshrc  # or source ~/.bashrc
 # Make the script executable
 chmod +x ~/development/Jobs-Dashboard/jobs_cli.py
 
-# Create symlink
-ln -s ~/development/Jobs-Dashboard/jobs_cli.py ~/.local/bin/jobs
+# Create symlink (use 'ljobs' to avoid conflict with shell built-in)
+ln -s ~/development/Jobs-Dashboard/jobs_cli.py ~/.local/bin/ljobs
 ```
 
 **Note:** This only works if your venv packages are globally accessible or you modify the script's shebang.
@@ -135,10 +137,10 @@ ln -s ~/development/Jobs-Dashboard/jobs_cli.py ~/.local/bin/jobs
 From any directory:
 
 ```bash
-jobs              # List new jobs
-jobs fetch        # Fetch from Gmail
-jobs apply 5      # Mark job 5 as applied
-jobs settings show  # View settings
+ljobs              # List new jobs
+ljobs fetch        # Fetch from Gmail
+ljobs apply 5      # Mark job 5 as applied
+ljobs settings show  # View settings
 ```
 
 ---
@@ -149,51 +151,51 @@ jobs settings show  # View settings
 
 ```bash
 # List new jobs (default command)
-jobs
+ljobs
 
 # Fetch new jobs from Gmail
-jobs fetch
+ljobs fetch
 
 # Fetch with more results
-jobs fetch --max-results 100
+ljobs fetch --max-results 100
 
 # Mark a job as applied
-jobs apply 5
+ljobs apply 5
 
 # Mark as seen (but not applied)
-jobs seen 5
+ljobs seen 5
 
 # Hide a job without marking applied
-jobs ignore 5
+ljobs ignore 5
 
 # Open a job in browser
-jobs open 5
+ljobs open 5
 
 # View all jobs (including applied/ignored)
-jobs all
+ljobs all
 ```
 
 ### Filter Management
 
 ```bash
 # View current filter settings
-jobs settings show
+ljobs settings show
 
 # Add filters
-jobs settings add include_titles "senior"
-jobs settings add include_titles "engineer"
-jobs settings add include_locations "remote"
-jobs settings add exclude_companies "Meta"
-jobs settings add exclude_companies "Amazon"
+ljobs settings add include_titles "senior"
+ljobs settings add include_titles "engineer"
+ljobs settings add include_locations "remote"
+ljobs settings add exclude_companies "Meta"
+ljobs settings add exclude_companies "Amazon"
 
 # Set max age (hide jobs older than N days)
-jobs settings set max_age_days 14
+ljobs settings set max_age_days 14
 
 # Remove a filter
-jobs settings remove exclude_companies "Meta"
+ljobs settings remove exclude_companies "Meta"
 
 # Clear all filters
-jobs settings reset --confirm
+ljobs settings reset --confirm
 ```
 
 ---
@@ -204,16 +206,16 @@ jobs settings reset --confirm
 
 ```bash
 # Add RemoteOK RSS feed
-jobs settings add rss_feeds "https://remoteok.com/remote-dev-jobs.rss"
+ljobs settings add rss_feeds "https://remoteok.com/remote-dev-jobs.rss"
 
 # Add Remotive RSS feed
-jobs settings add rss_feeds "https://remotive.com/remote-jobs/software-dev/feed"
+ljobs settings add rss_feeds "https://remotive.com/remote-jobs/software-dev/feed"
 
 # Fetch from RSS instead of Gmail
-jobs fetch --source rss
+ljobs fetch --source rss
 
 # Or fetch from both sources
-jobs fetch --source both
+ljobs fetch --source both
 ```
 
 ---
@@ -245,7 +247,7 @@ Add yourself as a test user:
 - Verify alerts are going to your personal Gmail
 - Check Gmail for "LinkedIn Job Alert" emails
 
-### Command not found: jobs
+### Command not found: ljobs
 Make sure `~/.local/bin` is in your PATH:
 ```bash
 echo $PATH | grep ".local/bin"
@@ -254,6 +256,11 @@ echo $PATH | grep ".local/bin"
 If not, add to `~/.zshrc` or `~/.bashrc`:
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
+```
+
+Then reload your shell:
+```bash
+source ~/.zshrc  # or source ~/.bashrc
 ```
 
 ---
